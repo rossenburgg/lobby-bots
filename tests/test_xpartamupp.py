@@ -23,7 +23,7 @@ from unittest import TestCase
 from unittest.mock import Mock, call, patch
 
 from parameterized import parameterized
-from sleekxmpp.jid import JID
+from slixmpp.jid import JID
 
 from xpartamupp.xpartamupp import Games, main, parse_args
 
@@ -93,42 +93,43 @@ class TestArgumentParsing(TestCase):
 
     @parameterized.expand([
         ([], Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', log_level=30,
-                       xserver=None, xdisabletls=False,
+                       xserver=None, no_verify=False,
                        nickname='WFGBot', password='XXXXXX', room='arena')),
         (['--debug'],
          Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', log_level=10,
-                   xserver=None, xdisabletls=False,
+                   xserver=None, no_verify=False,
                    nickname='WFGBot', password='XXXXXX', room='arena')),
         (['--quiet'],
          Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', log_level=40,
-                   xserver=None, xdisabletls=False,
+                   xserver=None, no_verify=False,
                    nickname='WFGBot', password='XXXXXX', room='arena')),
         (['--verbose'],
          Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', log_level=20,
-                   xserver=None, xdisabletls=False,
+                   xserver=None, no_verify=False,
                    nickname='WFGBot', password='XXXXXX', room='arena')),
         (['-m', 'lobby.domain.tld'],
          Namespace(domain='lobby.domain.tld', login='xpartamupp', log_level=30, nickname='WFGBot',
-                   xserver=None, xdisabletls=False,
-                   password='XXXXXX', room='arena')),
+                   xserver=None, no_verify=False, password='XXXXXX', room='arena')),
         (['--domain=lobby.domain.tld'],
          Namespace(domain='lobby.domain.tld', login='xpartamupp', log_level=30, nickname='WFGBot',
-                   xserver=None, xdisabletls=False,
-                   password='XXXXXX', room='arena')),
+                   xserver=None, no_verify=False, password='XXXXXX', room='arena')),
         (['-m', 'lobby.domain.tld', '-l', 'bot', '-p', '123456', '-n', 'Bot', '-r', 'arena123',
           '-v'],
          Namespace(domain='lobby.domain.tld', login='bot', log_level=20, xserver=None,
-                   xdisabletls=False,
-                   nickname='Bot', password='123456', room='arena123')),
+                   no_verify=False, nickname='Bot', password='123456', room='arena123')),
         (['--domain=lobby.domain.tld', '--login=bot', '--password=123456', '--nickname=Bot',
           '--room=arena123', '--verbose'],
          Namespace(domain='lobby.domain.tld', login='bot', log_level=20, xserver=None,
-                   xdisabletls=False,
-                   nickname='Bot', password='123456', room='arena123')),
+                   no_verify=False, nickname='Bot', password='123456', room='arena123')),
+        (['--no-verify'],
+         Namespace(domain='lobby.wildfiregames.com', login='xpartamupp', log_level=30,
+                   xserver=None, no_verify=True,
+                   nickname='WFGBot', password='XXXXXX', room='arena')),
     ])
     def test_valid(self, cmd_args, expected_args):
         """Test valid parameter combinations."""
-        self.assertEqual(parse_args(cmd_args), expected_args)
+        with patch.object(sys, 'argv', ['xpartamupp'] + cmd_args):
+            self.assertEqual(parse_args(), expected_args)
 
     @parameterized.expand([
         (['-f'],),
@@ -140,8 +141,8 @@ class TestArgumentParsing(TestCase):
     ])
     def test_invalid(self, cmd_args):
         """Test invalid parameter combinations."""
-        with self.assertRaises(SystemExit):
-            parse_args(cmd_args)
+        with patch.object(sys, 'argv', ['xpartamupp'] + cmd_args), self.assertRaises(SystemExit):
+            parse_args()
 
 
 class TestMain(TestCase):
@@ -150,35 +151,18 @@ class TestMain(TestCase):
     def test_success(self):
         """Test successful execution."""
         with patch('xpartamupp.xpartamupp.parse_args') as args_mock, \
-                patch('xpartamupp.xpartamupp.XpartaMuPP') as xmpp_mock:
+                patch('xpartamupp.xpartamupp.XpartaMuPP') as xmpp_mock, \
+                patch('xpartamupp.xpartamupp.asyncio') as asyncio_mock:
             args_mock.return_value = Mock(log_level=30, login='xpartamupp',
                                           domain='lobby.wildfiregames.com', password='XXXXXX',
                                           room='arena', nickname='WFGBot',
-                                          xserver=None, xdisabletls=False)
+                                          xserver=None, no_verify=False)
             main()
-            args_mock.assert_called_once_with(sys.argv[1:])
+            args_mock.assert_called_once_with()
             xmpp_mock().register_plugin.assert_has_calls([call('xep_0004'), call('xep_0030'),
                                                           call('xep_0045'), call('xep_0060'),
                                                           call('xep_0199', {'keepalive': True})],
                                                          any_order=True)
-            xmpp_mock().connect.assert_called_once_with(None, True, True)
-            xmpp_mock().process.assert_called_once_with()
-
-    def test_failing_connect(self):
-        """Test failing connect to XMPP server."""
-        with patch('xpartamupp.xpartamupp.parse_args') as args_mock, \
-                patch('xpartamupp.xpartamupp.XpartaMuPP') as xmpp_mock:
-            args_mock.return_value = Mock(log_level=30, login='xpartamupp',
-                                          domain='lobby.wildfiregames.com', password='XXXXXX',
-                                          room='arena', nickname='WFGBot',
-                                          xserver=None, xdisabletls=False)
-
-            xmpp_mock().connect.return_value = False
-            main()
-            args_mock.assert_called_once_with(sys.argv[1:])
-            xmpp_mock().register_plugin.assert_has_calls([call('xep_0004'), call('xep_0030'),
-                                                          call('xep_0045'), call('xep_0060'),
-                                                          call('xep_0199', {'keepalive': True})],
-                                                         any_order=True)
-            xmpp_mock().connect.assert_called_once_with(None, True, True)
-            xmpp_mock().process.assert_not_called()
+            xmpp_mock().connect.assert_called_once_with(None)
+            asyncio_mock.get_event_loop.assert_called_once_with()
+            asyncio_mock.get_event_loop.return_value.run_forever_assert_called_once_with()

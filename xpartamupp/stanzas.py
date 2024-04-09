@@ -16,7 +16,7 @@
 
 """0ad-specific XMPP-stanzas."""
 
-from sleekxmpp.xmlstream import ET, ElementBase
+from slixmpp.xmlstream import ET, ElementBase
 
 
 class BoardListXmppPlugin(ElementBase):
@@ -140,7 +140,7 @@ class ProfileXmppPlugin(ElementBase):
         """
         self.xml.append(ET.fromstring('<command>%s</command>' % player_nick))
 
-    def add_item(self, player, rating, highest_rating=0,  # pylint: disable=too-many-arguments
+    def add_item(self, player, rating, highest_rating=0,
                  rank=0, total_games_played=0, wins=0, losses=0):
         """Add an item to the extension.
 

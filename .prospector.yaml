@@ -1,7 +1,12 @@
 ---
+autodetect: false
 strictness: veryhigh
 doc-warnings: true
 test-warnings: true
+
+mccabe:
+  options:
+    max-complexity: 11
 
 pep8:
   options:
@@ -11,7 +16,7 @@ pep8:
 
 pylint:
   options:
-    max-args: 6
+    max-args: 8
     max-attributes: 10
     max-line-length: 99
   disable:
